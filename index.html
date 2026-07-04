@@ -2,168 +2,427 @@
 <html>
 <head>
   <base target="_top">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบบันทึกข้อมูลการขอรื้อถอนอาคาร</title>
   <style>
-    body { background-color: #f8f9fa; }
-    .card { box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    /* ตั้งค่าธีมสีเขียวพาสเทลและฟอนต์ */
+    body {
+      font-family: 'Sarabun', sans-serif, Arial;
+      background-color: #e8f5e9; /* สีเขียวพาสเทลหลัก */
+      margin: 0;
+      padding: 0;
+      color: #2e7d32;
+    }
+
+    /* แถวด้านบนภาพพื้นหลังป่าไม้ */
+    .header-banner {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?q=80&w=1200');
+      background-size: cover;
+      background-position: center;
+      color: white;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .header-banner h1 {
+      margin: 0;
+      font-size: 24px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 20px;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"], input[type="date"], select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #a5d6a7;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 16px;
+      background-color: #fbfdfb;
+    }
+
+    /* กล่องสำหรับเลือกหมายเลข 1-100 (เลือกได้หลายเลข) */
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+      gap: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #a5d6a7;
+      padding: 10px;
+      border-radius: 6px;
+      background-color: #fbfdfb;
+    }
+
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .checkbox-item input {
+      margin-right: 5px;
+    }
+
+    /* สีของ Dropdown สถานะหนังสือรื้อถอนตามเงื่อนไข */
+    select#status {
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    .status-gray { background-color: #e0e0e0 !important; color: #616161 !important; }
+    .status-yellow { background-color: #fff59d !important; color: #f57f17 !important; }
+    .status-green { background-color: #a5d6a7 !important; color: #1b5e20 !important; }
+
+    /* ปุ่มต่างๆ */
+    .btn-submit {
+      background-color: #4caf50;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      width: 100%;
+    }
+
+    .btn-submit:hover { background-color: #45a049; }
+
+    .btn-cancel {
+      background-color: #e0e0e0;
+      color: #333;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
+      width: 100%;
+      display: none;
+    }
+
+    /* ส่วนตารางจัดการข้อมูลสำหรับแก้ไข */
+    .table-container {
+      margin-top: 40px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #c8e6c9;
+      padding: 10px;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background-color: #c8e6c9;
+      color: #2e7d32;
+    }
+
+    tr:nth-child(even) { background-color: #f9fbf9; }
+
+    .btn-edit {
+      background-color: #ffb74d;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .loading {
+      text-align: center;
+      font-style: italic;
+      color: #666;
+    }
   </style>
 </head>
 <body>
-  <div class="container mt-5 mb-5">
-    <div class="card p-4">
-      <h3 class="mb-4 text-primary">ระบบบันทึก ขอรื้อถอนที่ราชพัสดุ</h3>
 
-      <form id="mainForm" onsubmit="handleFormSubmit(event)">
-        <input type="hidden" id="recordId">
+  <div class="header-banner">
+    <h1>🌳 การขอรื้อถอนอาคารสิ่ง/ปลูกสร้างที่เป็นที่ราชพัสดุ<br>สำนักงานเขตพื้นที่การศึกษาประถมศึกษาแม่ฮ่องสอน เขต 1 🌳</h1>
+  </div>
 
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">โรงเรียน</label>
-            <input type="text" class="form-control" id="school" required placeholder="เช่น รร.ขุนยวม">
-          </div>
-          <div class="col-md-3 mb-3">
-            <label class="form-label">แปลงหมายเลขที่</label>
-            <input type="text" class="form-control" id="plotNo" placeholder="เช่น มส.345">
-          </div>
-          <div class="col-md-3 mb-3">
-            <label class="form-label">ลำดับอาคาร</label>
-            <input type="text" class="form-control" id="buildingNo">
-          </div>
-        </div>
+  <div class="container">
+    <h3 id="form-title" style="margin-top:0;">📝 เพิ่มข้อมูลใหม่</h3>
+    
+    <form id="mainForm" onsubmit="handleFormSubmit(event)">
+      <input type="hidden" id="rowNumber" name="rowNumber">
 
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">สถานะการดำเนินการ</label>
-            <select class="form-select" id="status" required>
-              <option value="">-- เลือกสถานะ --</option>
-              <option value="เสร็จสิ้น">เสร็จสิ้น</option>
-              <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
-              <option value="ยังไม่เสร็จ">ยังไม่เสร็จ</option>
-            </select>
-          </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">วันที่แจ้ง/อัปเดต</label>
-            <input type="date" class="form-control" id="date"> 
-          </div>
-        </div>
-
-        <button type="submit" class="btn btn-primary" id="btnSave">บันทึกข้อมูล</button>
-        <button type="button" class="btn btn-secondary" onclick="resetForm()">ล้างฟอร์ม (เพิ่มข้อมูลใหม่)</button>
-      </form>
-    </div>
-
-    <div class="card p-4 mt-4">
-      <h4 class="mb-3">รายการข้อมูล (คลิกแก้ไขได้)</h4>
-      <div class="table-responsive">
-        <table class="table table-bordered table-hover" id="dataTable">
-          <thead class="table-dark">
-            <tr>
-              <th>โรงเรียน</th>
-              <th>แปลงหมายเลขที่</th>
-              <th>ลำดับอาคาร</th>
-              <th>สถานะ</th>
-              <th>วันที่</th>
-              <th width="10%">จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            </tbody>
-        </table>
+      <div class="form-group">
+        <label for="school">1. ชื่อโรงเรียน:</label>
+        <select id="school" name="school" required>
+          <option value="">-- กำลังโหลดข้อมูลโรงเรียน --</option>
+        </select>
       </div>
+
+      <div class="form-group">
+        <label for="parcel">2. แปลงหมายเลขที่:</label>
+        <input type="text" id="parcel" name="parcel" required placeholder="กรอกหมายเลขแปลงราชพัสดุ">
+      </div>
+
+      <div class="form-group">
+        <label>3. ลำดับอาคารที่ขอรื้อถอน (เลือกได้มากกว่า 1 รายการ):</label>
+        <div class="checkbox-grid" id="buildingGrid">
+          </div>
+      </div>
+
+      <div class="form-group">
+        <label for="status">4. หนังสือรื้อถอนจากโรงเรียน:</label>
+        <select id="status" name="status" onchange="updateStatusColor(this)" required>
+          <option value="">-- กำลังโหลดสถานะ --</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="letterNo">5. หนังสือจากโรงเรียน (ศธ0415.):</label>
+        <input type="text" id="letterNo" name="letterNo" required placeholder="ตัวอย่าง: ศธ0415.xx/xxx">
+      </div>
+
+      <div class="form-group">
+        <label for="dateInput">6. หนังสือลงวันที่ (แสดงผลเป็นปี พ.ศ.):</label>
+        <input type="date" id="dateInput" required>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submitBtn">💾 บันทึกข้อมูล</button>
+      <button type="button" class="btn-cancel" id="cancelBtn" onclick="resetForm()">❌ ยกเลิกการแก้ไข</button>
+    </form>
+
+    <div class="table-container">
+      <h3>📊 รายการข้อมูลที่มีอยู่ในระบบ (เริ่มแถว 3 เป็นต้นไป)</h3>
+      <div id="loadingRecords" class="loading">กำลังโหลดข้อมูลรายการ...</div>
+      <table id="recordsTable" style="display:none;">
+        <thead>
+          <tr>
+            <th>แถว</th>
+            <th>โรงเรียน</th>
+            <th>แปลงหมายเลขที่</th>
+            <th>ลำดับอาคาร</th>
+            <th>หนังสือรื้อถอน</th>
+            <th>เลขที่หนังสือ</th>
+            <th>ลงวันที่</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="recordsBody"></tbody>
+      </table>
     </div>
   </div>
 
   <script>
-    // 1. โหลดข้อมูลตารางทันทีที่เปิดหน้าเว็บ
-    document.addEventListener('DOMContentLoaded', loadData);
+    // เมื่อโหลดหน้าเว็บ ให้ดึงข้อมูลมาใส่เมนูเลื่อนลง และดึงรายการมาแสดงในตาราง
+    window.addEventListener('load', function() {
+      generateBuildingCheckboxes();
+      loadDropdownOptions();
+      loadTableRecords();
+    });
 
-    function loadData() {
-      // เรียกใช้ฟังก์ชัน getData ใน Code.gs
-      google.script.run.withSuccessHandler(renderTable).getData();
+    // สร้างกล่อง Checkbox เลข 1-100
+    function generateBuildingCheckboxes() {
+      const grid = document.getElementById('buildingGrid');
+      for (let i = 1; i <= 100; i++) {
+        const item = document.createElement('div');
+        item.className = 'checkbox-item';
+        item.innerHTML = `<input type="checkbox" name="buildings" value="${i}" id="b_${i}"> <label for="b_${i}" style="display:inline; font-weight:normal; margin:0;">${i}</label>`;
+        grid.appendChild(item);
+      }
     }
 
-    // 2. ฟังก์ชันวาดตาราง
-    function renderTable(dataArray) {
-      let tbody = document.querySelector("#dataTable tbody");
-      tbody.innerHTML = ""; // ล้างข้อมูลเก่า
-      
-      dataArray.forEach(row => {
-        let tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${row.school}</td>
-          <td>${row.plotNo}</td>
-          <td>${row.buildingNo}</td>
-          <td><span class="badge ${row.status == 'เสร็จสิ้น' ? 'bg-success' : 'bg-warning text-dark'}">${row.status}</span></td>
-          <td>${row.date}</td>
-          <td>
-            <button class="btn btn-sm btn-info text-white" onclick='editData(${JSON.stringify(row)})'>แก้ไข</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+    // ดึงค่าจากชีต DATA มาใส่ในเมนูเลื่อนลง
+    function loadDropdownOptions() {
+      google.script.run.withSuccessHandler(function(data) {
+        // อัปเดต Dropdown โรงเรียน
+        const schoolSelect = document.getElementById('school');
+        schoolSelect.innerHTML = '<option value="">-- เลือกโรงเรียน --</option>';
+        data.schools.forEach(school => {
+          schoolSelect.innerHTML += `<option value="${school}">${school}</option>`;
+        });
+
+        // อัปเดต Dropdown สถานะหนังสือรื้อถอน
+        const statusSelect = document.getElementById('status');
+        statusSelect.innerHTML = '<option value="">-- เลือกสถานะ --</option>';
+        data.statuses.forEach(status => {
+          statusSelect.innerHTML += `<option value="${status}">${status}</option>`;
+        });
+        
+        // เซ็ตสีเริ่มต้น
+        updateStatusColor(statusSelect);
+      }).getDropdownData();
     }
 
-    // 3. ฟังก์ชันเมื่อกดปุ่มบันทึก
-    function handleFormSubmit(e) {
-      e.preventDefault(); // ป้องกันเว็บโหลดใหม่
-      
-      let btn = document.getElementById("btnSave");
-      btn.disabled = true;
-      btn.innerText = "กำลังบันทึก...";
+    // ฟังก์ชันเปลี่ยนสี Dropdown สถานะที่หน้าจอเว็บ
+    function updateStatusColor(selectElement) {
+      const val = selectElement.value;
+      selectElement.className = ''; // ล้างคลาสเดิม
+      if (val === 'ยังไม่เสร็จ') {
+        selectElement.classList.add('status-gray');
+      } else if (val === 'กำลังดำเนินการ') {
+        selectElement.classList.add('status-yellow');
+      } else if (val === 'เสร็จสิ้น') {
+        selectElement.classList.add('status-green');
+      }
+    }
 
-      // แพ็กข้อมูลจากฟอร์มเป็น Object
-      let obj = {
-        id: document.getElementById("recordId").value,
-        school: document.getElementById("school").value,
-        plotNo: document.getElementById("plotNo").value,
-        buildingNo: document.getElementById("buildingNo").value,
-        status: document.getElementById("status").value,
-        date: document.getElementById("date").value
+    // ฟังก์ชันจัดเตรียมข้อมูลวันที่เป็นปี พ.ศ. ก่อนส่งเข้าเซิร์ฟเวอร์
+    function getFormattedDateBE() {
+      const dateVal = document.getElementById('dateInput').value; // คืนค่าเป็น YYYY-MM-DD (ค.ศ.)
+      if (!dateVal) return "";
+      const parts = dateVal.split('-');
+      const yearCE = parseInt(parts[0]);
+      const yearBE = yearCE + 543; // แปลงเป็น พ.ศ.
+      return `${parts[2]}/${parts[1]}/${yearBE}`; // รูปแบบ DD/MM/YYYY (พ.ศ.)
+    }
+
+    // ฟังก์ชันแปลงจากวันที่ พ.ศ. กลับไปเป็นรูปแบบ ค.ศ. (เพื่อให้ช่องปฏิทินแสดงผลได้เวลาแก้ไข)
+    function setDateFromBE(beDateString) {
+      if (!beDateString) {
+        document.getElementById('dateInput').value = '';
+        return;
+      }
+      const parts = beDateString.split('/'); // คาดหวัง DD/MM/YYYY
+      if(parts.length === 3) {
+        const yearCE = parseInt(parts[2]) - 543;
+        // จัดฟอร์แมตกลับเป็น YYYY-MM-DD
+        const formattedCE = `${yearCE}-${parts[1]}-${parts[0]}`;
+        document.getElementById('dateInput').value = formattedCE;
+      }
+    }
+
+    // โหลดตารางรายการข้อมูล
+    let allRecords = [];
+    function loadTableRecords() {
+      document.getElementById('loadingRecords').style.display = 'block';
+      document.getElementById('recordsTable').style.display = 'none';
+
+      google.script.run.withSuccessHandler(function(records) {
+        allRecords = records;
+        const tbody = document.getElementById('recordsBody');
+        tbody.innerHTML = '';
+        
+        if (records.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">ยังไม่มีข้อมูลในระบบ</td></tr>';
+        } else {
+          records.forEach(row => {
+            tbody.innerHTML += `
+              <tr>
+                <td>${row.rowNumber}</td>
+                <td>${row.school}</td>
+                <td>${row.parcel}</td>
+                <td>${row.buildings}</td>
+                <td>${row.status}</td>
+                <td>${row.letterNo}</td>
+                <td>${row.date}</td>
+                <td><button class="btn-edit" onclick="editRow(${row.rowNumber})">✏️ แก้ไข</button></td>
+              </tr>
+            `;
+          });
+        }
+        document.getElementById('loadingRecords').style.display = 'none';
+        document.getElementById('recordsTable').style.display = 'table';
+      }).getExistingRecords();
+    }
+
+    // กดปุ่มบันทึกหรืออัปเดตข้อมูล
+    function handleFormSubmit(event) {
+      event.preventDefault();
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').innerText = '⏳ กำลังบันทึกข้อมูล...';
+
+      // ดึงค่าอาคารที่เลือก (ดึงเป็น Array แล้วต่อกันด้วยเครื่องหมายจุลภาค , )
+      const checkedBuildings = [];
+      const checkboxes = document.querySelectorAll('input[name="buildings"]:checked');
+      checkboxes.forEach(cb => checkedBuildings.push(cb.value));
+
+      const formData = {
+        rowNumber: document.getElementById('rowNumber').value,
+        school: document.getElementById('school').value,
+        parcel: document.getElementById('parcel').value,
+        buildings: checkedBuildings.join(', '), // เก็บเป็นสายอักขระธรรมดาลงชีต
+        status: document.getElementById('status').value,
+        letterNo: document.getElementById('letterNo').value,
+        date: getFormattedDateBE() // ส่งวันที่เป็นระบบ พ.ศ. เข้าไปในเซลล์ตามเงื่อนไข
       };
 
-      // ส่งไปที่ Code.gs
       google.script.run.withSuccessHandler(function(response) {
-        alert(response); // แจ้งเตือนว่าบันทึกสำเร็จ
-        resetForm();     // ล้างฟอร์ม
-        loadData();      // โหลดตารางอัปเดตใหม่
-      }).saveData(obj);
+        alert(response);
+        resetForm();
+        loadTableRecords();
+      }).saveRecord(formData);
     }
 
-    // 4. ฟังก์ชันเมื่อกดปุ่ม "แก้ไข" ในตาราง
-    function editData(row) {
-      // ดึงข้อมูลมายัดใส่ช่อง input ต่างๆ
-      document.getElementById("recordId").value = row.id;
-      document.getElementById("school").value = row.school;
-      document.getElementById("plotNo").value = row.plotNo;
-      document.getElementById("buildingNo").value = row.buildingNo;
-      document.getElementById("status").value = row.status;
+    // นำข้อมูลแถวที่เลือกขึ้นมาพิมพ์บนฟอร์มเพื่อแก้ไข
+    function editRow(rowNum) {
+      const record = allRecords.find(r => r.rowNumber === rowNum);
+      if (!record) return;
+
+      document.getElementById('form-title').innerText = `✏️ แก้ไขข้อมูล (แถวที่ ${rowNum})`;
+      document.getElementById('rowNumber').value = record.rowNumber;
+      document.getElementById('school').value = record.school;
+      document.getElementById('parcel').value = record.parcel;
+      document.getElementById('status').value = record.status;
+      updateStatusColor(document.getElementById('status'));
+      document.getElementById('letterNo').value = record.letterNo;
       
-      // จัดรูปแบบวันที่ให้รองรับ input type="date" (YYYY-MM-DD)
-      let dateVal = "";
-      if(row.date){
-         // ถ้าในชีตเก็บเป็นแบบอื่น อาจจะต้องเขียนแปลงวันที่ตรงนี้นะครับ
-         dateVal = row.date; 
+      // แปลงวันที่ พ.ศ. แสดงบนช่องกรอก
+      setDateFromBE(record.date);
+
+      // รีเซ็ตการเช็คกล่องลำดับอาคารก่อน แล้วทำการติ๊กถูกตามข้อมูลเก่า
+      const checkboxes = document.querySelectorAll('input[name="buildings"]');
+      checkboxes.forEach(cb => cb.checked = false);
+      
+      if (record.buildings) {
+        const bArray = record.buildings.split(',').map(s => s.trim());
+        bArray.forEach(val => {
+          const cb = document.getElementById(`b_${val}`);
+          if (cb) cb.checked = true;
+        });
       }
-      document.getElementById("date").value = dateVal;
 
-      // เปลี่ยนหน้าตาปุ่มให้รู้ว่ากำลัง "แก้ไข"
-      let btn = document.getElementById("btnSave");
-      btn.innerText = "อัปเดตข้อมูล";
-      btn.classList.replace("btn-primary", "btn-success");
+      // เปลี่ยนชื่อปุ่ม
+      document.getElementById('submitBtn').innerText = '🔄 อัปเดตข้อมูลเดิม';
+      document.getElementById('submitBtn').style.backgroundColor = '#ffb74d';
+      document.getElementById('cancelBtn').style.display = 'block';
       
-      // เลื่อนหน้าจอกลับไปที่ฟอร์มด้านบน
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // เลื่อนจอขึ้นด้านบนเพื่อให้เห็นฟอร์มแก้ข้อมูล
+      window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
-    // 5. ฟังก์ชันล้างฟอร์ม
+    // ล้างฟอร์มกลับเป็นปกติ
     function resetForm() {
-      document.getElementById("mainForm").reset();
-      document.getElementById("recordId").value = "";
-      
-      let btn = document.getElementById("btnSave");
-      btn.innerText = "บันทึกข้อมูล";
-      btn.classList.replace("btn-success", "btn-primary");
-      btn.disabled = false;
+      document.getElementById('mainForm').reset();
+      document.getElementById('rowNumber').value = '';
+      document.getElementById('form-title').innerText = '📝 เพิ่มข้อมูลใหม่';
+      document.getElementById('submitBtn').innerText = '💾 บันทึกข้อมูล';
+      document.getElementById('submitBtn').style.backgroundColor = '#4caf50';
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('cancelBtn').style.display = 'none';
+      updateStatusColor(document.getElementById('status'));
     }
   </script>
 </body>
