@@ -1,472 +1,134 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบขอรื้อถอนอาคารสิ่งปลูกสร้าง</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+// กำหนดค่าเริ่มต้นของระบบเชื่อมต่อ Google Sheet ID ที่ระบุไว้
+const TARGET_SHEET_ID = "16ZdZtakZGis9mMZp7cCCVQ28WNJ_yvm_SyJt8fUTQfM";
+const SHEET_NAME = "บันทึกข้อมูลรื้อถอน";
+
+/**
+ * ฟังก์ชัน doGet สำหรับแสดงผลหน้าเว็บสวยงามแบบ Full Web App
+ */
+function doGet(e) {
+  // ตรวจสอบสถานะการเชื่อมต่อแบบด่วน
+  if (e.parameter.action === 'test') {
+    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
   
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: 'Mali', cursive;
-      background-color: #E8F5E9; /* สีเขียวพาสเทล */
-      margin: 0;
-      padding: 0;
-      color: #2E7D32;
-    }
+  // โหลดดึงข้อมูลจากตาราง
+  if (e.parameter.action === 'read') {
+    var data = readDataFromSheet();
+    return ContentService.createTextOutput(JSON.stringify(data))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ส่งออกหน้า UI
+  return HtmlService.createHtmlOutputFromFile('Index')
+      .setTitle('ระบบบันทึกข้อมูลสถานะที่ราชพัสดุและพื้นที่ป่าไม้ฯ แม่ฮ่องสอน เขต 1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/**
+ * ฟังก์ชัน POST สำหรับรับค่า JSON จาก Web App มาจัดเก็บลงใน แผ่นงาน
+ */
+function doPost(e) {
+  try {
+    var jsonString = e.postData.contents;
+    var data = JSON.parse(jsonString);
     
-    /* ส่วนหัวด้านบน - ภาพพื้นหลังป่าไม้ */
-    .header-banner {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=1600');
-      background-size: cover;
-      background-position: center;
-      color: #ffffff;
-      padding: 50px 20px;
-      text-align: center;
-      text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
-      border-bottom: 6px solid #A5D6A7;
-    }
-    .header-banner h1 {
-      margin: 0;
-      font-size: 2.2rem;
-      font-weight: 700;
-    }
-    .header-banner .icon-tree {
-      font-size: 3.5rem;
-      display: block;
-      margin-bottom: 10px;
-    }
-    .header-banner p {
-      margin: 10px 0 0 0;
-      font-size: 1.4rem;
-      font-weight: 600;
-    }
-
-    .container {
-      max-width: 950px;
-      margin: 30px auto;
-      padding: 0 15px;
-    }
-
-    .card {
-      background: #ffffff;
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 8px 24px rgba(46, 125, 50, 0.15);
-      margin-bottom: 30px;
-      border: 2px solid #C8E6C9;
-    }
-
-    .card h2 {
-      margin-top: 0;
-      margin-bottom: 20px;
-      font-size: 1.5rem;
-      border-bottom: 2px dashed #A5D6A7;
-      padding-bottom: 10px;
-      color: #1B5E20;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 600;
-      font-size: 1.05rem;
-    }
-
-    input[type="text"], input[type="date"], select {
-      width: 100%;
-      padding: 12px 15px;
-      border: 2px solid #C8E6C9;
-      border-radius: 12px;
-      font-family: 'Mali', cursive;
-      font-size: 1rem;
-      color: #2E7D32;
-      background-color: #FAFAFA;
-      outline: none;
-      transition: all 0.3s ease;
-    }
-
-    input:focus, select:focus {
-      border-color: #81C784;
-      background-color: #ffffff;
-      box-shadow: 0 0 8px rgba(129, 199, 132, 0.4);
-    }
-
-    /* สไตล์กล่องเลือก ลำดับอาคาร 1-100 แบบเลือกได้หลายตัว (Checkbox Grid) */
-    .checkbox-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-      gap: 8px;
-      max-height: 180px;
-      overflow-y: auto;
-      border: 2px solid #C8E6C9;
-      padding: 15px;
-      border-radius: 12px;
-      background: #FAFAFA;
-    }
-    .checkbox-item {
-      display: flex;
-      align-items: center;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-    .checkbox-item input {
-      margin-right: 6px;
-      transform: scale(1.2);
-      accent-color: #4CAF50;
-    }
-
-    /* ปุ่มกดสไตล์น่ารักกุ๊กกิ๊ก */
-    .btn {
-      display: inline-block;
-      width: 100%;
-      padding: 14px;
-      background: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-family: 'Mali', cursive;
-      font-size: 1.2rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-    }
-    .btn:hover {
-      background: #43A047;
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
-    }
-    .btn:active {
-      transform: translateY(0);
-    }
-    .btn-secondary {
-      background: #90A4AE;
-      box-shadow: 0 4px 12px rgba(144, 164, 174, 0.3);
-      margin-top: 10px;
-    }
-    .btn-secondary:hover {
-      background: #78909C;
-      box-shadow: 0 6px 16px rgba(144, 164, 174, 0.4);
-    }
-
-    /* ส่วนของตารางจัดการข้อมูลสำหรับแก้ไข */
-    .table-container {
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-      font-size: 0.95rem;
-    }
-    th, td {
-      border: 1px solid #E0E0E0;
-      padding: 12px;
-      text-align: left;
-    }
-    th {
-      background-color: #C8E6C9;
-      color: #1B5E20;
-      font-weight: 600;
-    }
-    tr:nth-child(even) {
-      background-color: #F9F9F9;
-    }
-    .btn-edit {
-      background: #FFB300;
-      color: white;
-      padding: 6px 12px;
-      border: none;
-      border-radius: 8px;
-      font-family: 'Mali', cursive;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    .btn-edit:hover {
-      background: #FFA000;
-    }
-
-    /* สถานะการโหลดข้อมูล */
-    .loading-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255,255,255,0.8);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 1.5rem;
-      font-weight: 700;
-      z-index: 1000;
-    }
-  </style>
-</head>
-<body>
-
-  <div class="loading-overlay" id="loading">กำลังโหลดระบบน่ารักๆ รอสักครู่นะคะ... 🌲</div>
-
-  <div class="header-banner">
-    <span class="icon-tree">🌲</span>
-    <h1>การขอรื้อถอนอาคารสิ่ง/ปลูกสร้างที่เป็นที่ราชพัสดุ</h1>
-    <p>สำนักงานเขตพื้นที่การศึกษาประถมศึกษาแม่ฮ่องสอน เขต 1</p>
-  </div>
-
-  <div class="container">
+    // ตรวจสอบและดึงชีตอัตโนมัติ (จะสร้างทันทีถ้าไม่มีชีตนี้อยู่)
+    var sheet = getOrCreateTargetSheet();
     
-    <div class="card">
-      <h2 id="form-title">📝 กรอกข้อมูลขอรื้อถอนอาคาร</h2>
-      <form id="demolitionForm">
-        <input type="hidden" id="rowNumber" value="">
+    // จัดรูปแบบเวลาประทับ (Timestamp) ของประเทศไทน
+    var timestamp = Utilities.formatDate(new Date(), "GMT+7", "dd/MM/yyyy HH:mm:ss");
+    
+    // บันทึกแถวข้อมูลเรียงตามโครงสร้างข้อมูล
+    sheet.appendRow([
+      timestamp,
+      data.school,
+      data.parcelNo,
+      data.buildings,
+      data.status,
+      data.letterNo,
+      data.letterDate,
+      data.office,
+      data.admin
+    ]);
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Data saved successfully" }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.toString() }))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-        <div class="form-group">
-          <label for="school">1. ชื่อโรงเรียน</label>
-          <select id="school" required>
-            <option value="">-- เลือกโรงเรียน --</option>
-          </select>
-        </div>
+/**
+ * ฟังก์ชันการค้นหาความถูกต้องของโครงสร้างชีต หากยังไม่มีจะทำการอินิทชีตและใส่หัวข้อให้อัตโนมัติ
+ */
+function getOrCreateTargetSheet() {
+  var ss = SpreadsheetApp.openById(TARGET_SHEET_ID);
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  
+  if (!sheet) {
+    // ถ้ายังไม่มีหน้าบันทึกข้อมูลดังกล่าว ระบบจะทำการสร้างหน้าชีตนี้ขึ้นมาให้อัตโนมัติทันที
+    sheet = ss.insertSheet(SHEET_NAME);
+    
+    // สร้างหัวตารางข้อกำหนด Column Header
+    var headers = [
+      "วันเวลาทำรายการ", 
+      "ชื่อโรงเรียน", 
+      "แปลงหมายเลขที่ มส.", 
+      "ลำดับอาคารที่ขอรื้อถอน", 
+      "สถานะการส่งหนังสือมาที่เขต", 
+      "เลขที่หนังสือศธ.", 
+      "วันที่ลงนามในหนังสือเอกสาร",
+      "สำนักงานเขตพื้นที่การศึกษา",
+      "แอดมินผู้ลงบันทึก"
+    ];
+    
+    sheet.appendRow(headers);
+    
+    // ตกแต่งหัวตารางของชีตแบบสวยงามให้อัตโนมัติด้วย
+    var headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground("#064e3b") // สีเขียวเข้มสอดคล้องธีมเว็บแอป
+               .setFontColor("#ffffff")
+               .setFontWeight("bold")
+               .setHorizontalAlignment("center");
+               
+    sheet.setFrozenRows(1); // ตรึงแถวแรกไว้
+  }
+  return sheet;
+}
 
-        <div class="form-group">
-          <label for="plot">2. แปลงหมายเลขที่ (คอลัมน์ B)</label>
-          <input type="text" id="plot" placeholder="กรอกหมายเลขแปลง" required>
-        </div>
-
-        <div class="form-group">
-          <label>3. ลำดับอาคารที่ขอรื้อถอน (เลือกได้มากกว่า 1 ตัวเลือก)</label>
-          <div class="checkbox-grid" id="buildingGrid">
-            </div>
-        </div>
-
-        <div class="form-group">
-          <label for="demolitionLetter">4. หนังสือรื้อถอนจากโรงเรียน (คอลัมน์ D)</label>
-          <select id="demolitionLetter" onchange="updateLetterColor(this)" required>
-            <option value="">-- เลือกสถานะ --</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label for="schoolLetterNum">5. หนังสือจากโรงเรียน (ศธ0415.)</label>
-          <input type="text" id="schoolLetterNum" placeholder="กรอกเลขที่หนังสือ เช่น ศธ0415./..." required>
-        </div>
-
-        <div class="form-group">
-          <label for="letterDate">6. หนังสือลงวันที่ (ระบบจะบันทึกเป็นปี พ.ศ.)</label>
-          <input type="date" id="letterDate" required>
-        </div>
-
-        <button type="submit" class="btn" id="btn-submit">💾 บันทึกข้อมูลลง Google Sheet</button>
-        <button type="button" class="btn btn-secondary" id="btn-cancel" style="display:none;" onclick="resetForm()">❌ ยกเลิกการแก้ไข</button>
-      </form>
-    </div>
-
-    <div class="card">
-      <h2>📊 รายการข้อมูลทั้งหมดแถวที่ 3 เป็นต้นไป (คลิกแก้ไขได้ที่นี่)</h2>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>แถว</th>
-              <th>ชื่อโรงเรียน</th>
-              <th>แปลงหมายเลขที่</th>
-              <th>ลำดับอาคาร</th>
-              <th>หนังสือรื้อถอน</th>
-              <th>หนังสือโรงเรียน</th>
-              <th>ลงวันที่</th>
-              <th>จัดการ</th>
-            </tr>
-          </thead>
-          <tbody id="dataTableBody">
-            </tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-
-  <script>
-    // ตัวแปรเก็บข้อมูลทั้งหมดที่โหลดมาจากหลังบ้าน
-    let globalRecords = [];
-
-    // เมื่อโหลดหน้าเว็บเสร็จ ให้ทำงานทันที
-    window.onload = function() {
-      setupBuildingGrid();
-      loadInitialData();
-    };
-
-    // สร้างกล่องเช็คบ็อกซ์เลข 1-100
-    function setupBuildingGrid() {
-      const grid = document.getElementById('buildingGrid');
-      for (let i = 1; i <= 100; i++) {
-        const label = document.createElement('label');
-        label.className = 'checkbox-item';
-        label.innerHTML = `<input type="checkbox" name="buildingNum" value="${i}"> ${i}`;
-        grid.appendChild(label);
-      }
-    }
-
-    // ฟังก์ชันเปลี่ยนสี Dropdown ข้อ 4 ตามเงื่อนไข (ไม่กระทบสีตอนบันทึกลงชีต)
-    function updateLetterColor(selectElement) {
-      const val = selectElement.value;
-      selectElement.style.color = '#000000';
-      if (val === 'ยังไม่เสร็จ') {
-        selectElement.style.backgroundColor = '#E0E0E0'; // สีเทา
-      } else if (val === 'กำลังดำเนินการ') {
-        selectElement.style.backgroundColor = '#FFF59D'; // สีเหลืองพาสเทล
-      } else if (val === 'เสร็จสิ้น') {
-        selectElement.style.backgroundColor = '#A5D6A7'; // สีเขียวพาสเทล
-      } else {
-        selectElement.style.backgroundColor = '#FAFAFA';
-        selectElement.style.color = '#2E7D32';
-      }
-    }
-
-    // ดึงข้อมูล Dropdown และรายการแถวที่มีอยู่จาก Google Sheet ผ่าน Apps Script
-    function loadInitialData() {
-      document.getElementById('loading').style.display = 'flex';
-      google.script.run.withSuccessHandler(function(data) {
-        
-        // 1. ใส่ตัวเลือกชื่อโรงเรียน (คอลัมน์ A ชีต DATA)
-        const schoolSelect = document.getElementById('school');
-        schoolSelect.innerHTML = '<option value="">-- เลือกโรงเรียน --</option>';
-        data.schools.forEach(sch => {
-          schoolSelect.innerHTML += `<option value="${sch}">${sch}</option>`;
-        });
-
-        // 2. ใส่ตัวเลือกหนังสือรื้อถอน (คอลัมน์ B ชีต DATA)
-        const letterSelect = document.getElementById('demolitionLetter');
-        letterSelect.innerHTML = '<option value="">-- เลือกสถานะ --</option>';
-        data.letters.forEach(lettr => {
-          letterSelect.innerHTML += `<option value="${lettr}">${lettr}</option>`;
-        });
-
-        // 3. แสดงข้อมูลในตารางแก้ไข
-        globalRecords = data.records;
-        renderTable(data.records);
-
-        document.getElementById('loading').style.display = 'none';
-      }).getInitialData();
-    }
-
-    // ฟังก์ชันวาดตารางรายการข้อมูล
-    function renderTable(records) {
-      const tbody = document.getElementById('dataTableBody');
-      tbody.innerHTML = '';
-      if(records.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">ยังไม่มีข้อมูลในระบบ (เริ่มบันทึกที่แถว 3)</td></tr>';
-        return;
-      }
-      records.forEach(rec => {
-        tbody.innerHTML += `
-          <tr>
-            <td>${rec.rowNumber}</td>
-            <td>${rec.school}</td>
-            <td>${rec.plot}</td>
-            <td>${rec.buildingOrder}</td>
-            <td>${rec.demolitionLetter}</td>
-            <td>${rec.schoolLetterNum}</td>
-            <td>${rec.letterDate}</td>
-            <td><button class="btn-edit" onclick="editRecord(${rec.rowNumber})">✏️ แก้ไข</button></td>
-          </tr>
-        `;
-      });
-    }
-
-    // เมื่อผู้ใช้กดปุ่มแก้ไขในตาราง
-    function editRecord(rowNumber) {
-      const record = globalRecords.find(r => r.rowNumber === rowNumber);
-      if(!record) return;
-
-      document.getElementById('form-title').innerText = `✏️ กำลังแก้ไขข้อมูลแถวที่ ${rowNumber}`;
-      document.getElementById('rowNumber').value = record.rowNumber;
-      document.getElementById('school').value = record.school;
-      document.getElementById('plot').value = record.plot;
-      document.getElementById('demolitionLetter').value = record.demolitionLetter;
-      updateLetterColor(document.getElementById('demolitionLetter'));
-      document.getElementById('schoolLetterNum').value = record.schoolLetterNum;
-
-      // จัดการเช็คบ็อกซ์ ลำดับอาคาร (เช่น "1, 2, 15")
-      const checkedNums = record.buildingOrder.toString().split(',').map(s => s.trim());
-      const checkboxes = document.getElementsByName('buildingNum');
-      checkboxes.forEach(cb => {
-        cb.checked = checkedNums.includes(cb.value);
-      });
-
-      // แปลงวันที่จาก พ.ศ. ( DD/MM/YYYY ) กลับไปเป็น ค.ศ. ( YYYY-MM-DD ) เพื่อให้ Input Date แสดงผลถูก
-      if(record.letterDate) {
-        const parts = record.letterDate.split('/');
-        if(parts.length === 3) {
-          const ceYear = parseInt(parts[2]) - 543;
-          const month = parts[1].padStart(2, '0');
-          const day = parts[0].padStart(2, '0');
-          document.getElementById('letterDate').value = `${ceYear}-${month}-${day}`;
-        }
-      }
-
-      document.getElementById('btn-submit').innerText = '💾 บันทึกการแก้ไข';
-      document.getElementById('btn-cancel').style.display = 'inline-block';
-      window.scrollTo({top: 0, behavior: 'smooth'});
-    }
-
-    // ล้างฟอร์มกลับเป็นโหมดเพิ่มข้อมูลปกติ
-    function resetForm() {
-      document.getElementById('demolitionForm').reset();
-      document.getElementById('rowNumber').value = '';
-      document.getElementById('form-title').innerText = '📝 กรอกข้อมูลขอรื้อถอนอาคาร';
-      document.getElementById('btn-submit').innerText = '💾 บันทึกข้อมูลลง Google Sheet';
-      document.getElementById('btn-cancel').style.display = 'none';
-      document.getElementById('demolitionLetter').style.backgroundColor = '#FAFAFA';
-      document.getElementById('demolitionLetter').style.color = '#2E7D32';
-      
-      const checkboxes = document.getElementsByName('buildingNum');
-      checkboxes.forEach(cb => cb.checked = false);
-    }
-
-    // จัดการเมื่อกดส่งฟอร์ม (Submit)
-    document.getElementById('demolitionForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      document.getElementById('loading').style.display = 'flex';
-
-      // รวบรวมหมายเลขอาคารที่เลือก
-      const selectedBuildings = [];
-      const checkboxes = document.getElementsByName('buildingNum');
-      checkboxes.forEach(cb => {
-        if(cb.checked) selectedBuildings.push(cb.value);
-      });
-
-      // แปลงวันที่หน้าเว็บ (ค.ศ.) ไปเป็น พ.ศ. ก่อนส่งเข้า Google Sheet
-      const htmlDate = document.getElementById('letterDate').value; // รูปแบบ YYYY-MM-DD (ค.ศ.)
-      let beDateStr = "";
-      if(htmlDate) {
-        const dateParts = htmlDate.split('-');
-        const beYear = parseInt(dateParts[0]) + 543;
-        beDateStr = `${dateParts[2]}/${dateParts[1]}/${beYear}`; // รูปแบบ DD/MM/พ.ศ.
-      }
-
-      const formData = {
-        rowNumber: document.getElementById('rowNumber').value,
-        school: document.getElementById('school').value,
-        plot: document.getElementById('plot').value,
-        buildingOrder: selectedBuildings.join(', '),
-        demolitionLetter: document.getElementById('demolitionLetter').value,
-        schoolLetterNum: document.getElementById('schoolLetterNum').value,
-        letterDate: beDateStr
-      };
-
-      // ส่งข้อมูลไปเซฟที่ฝั่งเซิร์ฟเวอร์ (Google Apps Script)
-      google.script.run.withSuccessHandler(function(response) {
-        alert('บันทึกข้อมูลเรียบร้อยแล้วค่ะ! 🌳');
-        resetForm();
-        loadInitialData(); // โหลดข้อมูลตารางและอัปเดต dropdown ใหม่
-      }).saveRecord(formData);
+/**
+ * ฟังก์ชันอ่านข้อมูลทั้งหมดจากชีตเพื่อส่งกลับไปเรนเดอร์ในตาราง Data Table บนหน้าเว็บ
+ */
+function readDataFromSheet() {
+  var sheet = getOrCreateTargetSheet();
+  var rows = sheet.getDataRange().getValues();
+  
+  // หากพบเฉพาะหัวข้อตาราง (ยังไม่มีการบันทึกข้อมูลใดๆ)
+  if (rows.length <= 1) {
+    return [];
+  }
+  
+  var dataResult = [];
+  
+  // วนลูปเริ่มจากแถวที่ 2 เป็นต้นไป (ไม่นับ Header แถวแรก)
+  // ใช้การแสดงผลแบบถอยหลัง (นับจากอันล่าสุดขึ้นมาแสดงด้านบนสุดในตาราง)
+  for (var i = rows.length - 1; i >= 1; i--) {
+    var row = rows[i];
+    dataResult.push({
+      timestamp: row[0],
+      school: row[1],
+      parcelNo: row[2],
+      buildings: row[3],
+      status: row[4],
+      letterNo: row[5],
+      letterDate: row[6],
+      office: row[7],
+      admin: row[8]
     });
-  </script>
-</body>
-</html>
+  }
+  
+  return dataResult;
+}
